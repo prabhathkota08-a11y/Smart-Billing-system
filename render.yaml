@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: smart-billing
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: REMINDER_EMAIL
+        sync: false
+      - key: REMINDER_EMAIL_PASSWORD
+        sync: false
+      - key: APP_URL
+        sync: false
