@@ -178,30 +178,11 @@ function authenticateToken(req, res, next) {
   }
 }
 
-let etherealTransporter = null;
-let etherealAccount = null;
-
-async function createMailTransporter() {
+function createMailTransporter() {
   if (REMINDER_EMAIL && REMINDER_EMAIL_PW) {
     return { transporter: nodemailer.createTransport({ service: "gmail", auth: { user: REMINDER_EMAIL, pass: REMINDER_EMAIL_PW } }), type: "gmail" };
   }
-  if (!etherealTransporter) {
-    try {
-      const testAccount = await nodemailer.createTestAccount();
-      etherealAccount = testAccount;
-      etherealTransporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: { user: testAccount.user, pass: testAccount.pass },
-      });
-      console.log("Ethereal email test account created:", testAccount.user);
-    } catch (err) {
-      console.error("Failed to create Ethereal account:", err.message);
-      return null;
-    }
-  }
-  return { transporter: etherealTransporter, type: "ethereal", account: etherealAccount };
+  return null;
 }
 
 function buildReminderEmail(customerName, invoices, appUrl) {
@@ -514,9 +495,7 @@ app.post("/api/ai/action", authenticateToken, async (req, res) => {
     switch (action) {
 
       case "send-reminders": {
-        const mailInfo = await createMailTransporter();
-        const isEthereal = mailInfo?.type === "ethereal";
-        const isGmail = mailInfo?.type === "gmail";
+        const mailInfo = createMailTransporter();
         const pendingInvoices = await Invoice.find({ userId: uid, status: "Pending" });
         if (pendingInvoices.length === 0) {
           return res.json({ success: true, message: "No pending invoices found. All invoices are paid!" });
@@ -529,36 +508,42 @@ app.post("/api/ai/action", authenticateToken, async (req, res) => {
         });
         const sent = [], failed = [], skipped = [];
         const appUrl = process.env.APP_URL || "https://smart-billing-system-0m7z.onrender.com";
-        const senderName = isGmail ? REMINDER_EMAIL : (mailInfo?.account?.user || "smartbilling@ethereal.email");
+        const isLive = !!mailInfo;
         for (const [name, invoices] of Object.entries(byCustomer)) {
           const customer = await Customer.findOne({ userId: uid, name: { $regex: `^${name}$`, $options: "i" } });
           if (!customer?.email) { skipped.push({ customer: name, reason: "No email on record" }); continue; }
           const total = invoices.reduce((s, i) => s + Number(i.amount || 0), 0);
-          try {
-            const info = await mailInfo.transporter.sendMail({
-              from: `"Smart Billing" <${senderName}>`,
-              to: customer.email,
-              subject: `Payment Reminder — ₹${total.toLocaleString("en-IN")} due`,
-              html: buildReminderEmail(name, invoices, appUrl),
-              text: `Dear ${name}, you have ${invoices.length} pending invoice(s) totalling Rs.${total.toLocaleString("en-IN")}. Visit ${appUrl}/payments to pay.`,
-            });
-            const entry = { customer: name, email: customer.email, amount: total, invoices: invoices.map((i) => i.invoiceNo) };
-            if (isEthereal) {
-              entry.previewUrl = nodemailer.getTestMessageUrl(info);
+          const invoiceList = invoices.map((i) => i.invoiceNo);
+          if (isLive) {
+            try {
+              const info = await mailInfo.transporter.sendMail({
+                from: `"Smart Billing" <${REMINDER_EMAIL}>`,
+                to: customer.email,
+                subject: `Payment Reminder — ₹${total.toLocaleString("en-IN")} due`,
+                html: buildReminderEmail(name, invoices, appUrl),
+                text: `Dear ${name}, you have ${invoices.length} pending invoice(s) totalling Rs.${total.toLocaleString("en-IN")}. Visit ${appUrl}/payments to pay.`,
+              });
+              sent.push({ customer: name, email: customer.email, amount: total, invoices: invoiceList, delivered: true });
+            } catch (err) {
+              failed.push({ customer: name, email: customer.email, error: err.message });
             }
-            sent.push(entry);
-          } catch (err) {
-            failed.push({ customer: name, email: customer.email, error: err.message });
+          } else {
+            const emailHtml = buildReminderEmail(name, invoices, appUrl);
+            sent.push({
+              customer: name,
+              email: customer.email,
+              amount: total,
+              invoices: invoiceList,
+              preview: true,
+              subject: `Payment Reminder — ₹${total.toLocaleString("en-IN")} due`,
+              html: emailHtml,
+            });
           }
         }
-        const summary = `${sent.length} sent, ${failed.length} failed, ${skipped.length} skipped`;
-        const meta = isEthereal ? {
-          type: "ethereal",
-          note: "Emails sent via Ethereal test service. Click preview URLs to view each email in your browser.",
-          loginUrl: "https://ethereal.email/login",
-          loginUser: mailInfo.account.user,
-          loginPass: mailInfo.account.pass,
-        } : isGmail ? { type: "gmail" } : { type: "none", note: "Email not configured." };
+        const summary = `${sent.length} prepared, ${failed.length} failed, ${skipped.length} skipped`;
+        const meta = isLive
+          ? { type: "gmail", note: "Emails sent via Gmail SMTP." }
+          : { type: "preview", note: "Preview mode — set REMINDER_EMAIL and REMINDER_EMAIL_PASSWORD to send real emails." };
         return res.json({ success: true, action: "send-reminders", sent, failed, skipped, summary, meta });
       }
 

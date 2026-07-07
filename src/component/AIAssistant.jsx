@@ -77,20 +77,18 @@ function AIAssistant({ embedded = false }) {
     switch (data.action) {
       case "send-reminders": {
         let msg = "";
-        if (data.meta?.type === "ethereal") {
-          msg += "📧 **Emails sent via Ethereal test service**\nEmails were delivered to Ethereal's test inbox. Click the links below to view each one.\n\n";
+        if (data.meta?.type === "preview") {
+          msg += "📧 **Preview Mode** — Showing what the email looks like:\n\n";
+        }
+        if (data.meta?.type === "gmail") {
+          msg += "✅ **Emails delivered via SMTP!**\n\n";
         }
         msg += `**Reminder Report**\n\n`;
         if (data.sent?.length) {
-          msg += `✅ Sent to ${data.sent.length} customer(s):\n`;
+          msg += `✅ ${data.meta?.type === "gmail" ? "Sent to" : "Prepared for"} ${data.sent.length} customer(s):\n`;
           data.sent.forEach((s) => {
             msg += `  • ${s.customer} (${s.email}) — ₹${Number(s.amount).toLocaleString("en-IN")}\n`;
-            if (s.invoices) {
-              s.invoices.forEach((inv) => msg += `      Invoice ${inv}\n`);
-            }
-            if (s.previewUrl) {
-              msg += `      🔗 View email: ${s.previewUrl}\n`;
-            }
+            if (s.invoices) msg += `      Invoices: ${s.invoices.join(", ")}\n`;
           });
         }
         if (data.failed?.length) {
@@ -104,8 +102,8 @@ function AIAssistant({ embedded = false }) {
         if (!data.sent?.length && !data.failed?.length && !data.skipped?.length) {
           msg += "No pending invoices found. All invoices are paid!";
         }
-        if (data.meta?.type === "ethereal" && data.meta?.loginUrl) {
-          msg += `\n\n📬 **Ethereal inbox:** ${data.meta.loginUrl}\n   Email: ${data.meta.loginUser}\n   Password: ${data.meta.loginPass}`;
+        if (data.meta?.type === "preview") {
+          msg += `\n\n📧 To send real emails, add REMINDER_EMAIL (your Gmail) and REMINDER_EMAIL_PASSWORD (Gmail App Password) to Render environment variables.`;
         }
         return msg;
       }
