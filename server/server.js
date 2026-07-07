@@ -22,16 +22,20 @@ let usingEmbeddedDB = false;
 async function startEmbeddedMongoDB() {
   try {
     const { MongoMemoryServer } = require("mongodb-memory-server");
+    const dbPath = path.join(__dirname, "..", "data", "db");
+    try { fs.mkdirSync(dbPath, { recursive: true }); } catch {}
     const mongod = await MongoMemoryServer.create({
-      instance: { dbName: "smartbilling" },
+      instance: { dbName: "smartbilling", dbPath },
     });
     const uri = mongod.getUri();
-    console.log("Embedded MongoDB started at", uri);
+    console.log("Persistent embedded MongoDB started at", uri);
+    console.log("Data directory:", dbPath);
     await mongoose.connect(uri);
     dbConnected = true;
     usingEmbeddedDB = true;
-    console.log("Connected to embedded MongoDB");
-    await seedAdmin();
+    console.log("Connected to persistent embedded MongoDB");
+    const userCount = await User.countDocuments();
+    if (userCount === 0) await seedAdmin();
     return;
   } catch (err) {
     throw err;
@@ -47,14 +51,15 @@ async function connectWithRetry() {
       });
       dbConnected = true;
       console.log("Connected to MongoDB Atlas");
-      await seedAdmin();
+      const userCount = await User.countDocuments();
+      if (userCount === 0) await seedAdmin();
       return;
     } catch (err) {
       console.error("MongoDB Atlas connection failed:", err.message);
       console.log("Falling back to embedded MongoDB...");
     }
   } else {
-    console.log("No MONGODB_URI set, starting embedded MongoDB...");
+    console.log("No MONGODB_URI set, starting persistent embedded MongoDB...");
   }
   try {
     await startEmbeddedMongoDB();
