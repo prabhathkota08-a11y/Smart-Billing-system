@@ -494,9 +494,7 @@ app.post("/api/ai/action", authenticateToken, async (req, res) => {
 
       case "send-reminders": {
         const transporter = createMailTransporter();
-        if (!transporter) {
-          return res.json({ success: false, message: "Email not configured. Set REMINDER_EMAIL and REMINDER_EMAIL_PASSWORD in Render env vars." });
-        }
+        const isDemo = !transporter;
         const pendingInvoices = await Invoice.find({ userId: uid, status: "Pending" });
         if (pendingInvoices.length === 0) {
           return res.json({ success: true, message: "No pending invoices found. All invoices are paid!" });
@@ -511,22 +509,27 @@ app.post("/api/ai/action", authenticateToken, async (req, res) => {
         const appUrl = process.env.APP_URL || "https://smart-billing-system-0m7z.onrender.com";
         for (const [name, invoices] of Object.entries(byCustomer)) {
           const customer = await Customer.findOne({ userId: uid, name: { $regex: `^${name}$`, $options: "i" } });
-          if (!customer?.email) { skipped.push({ customer: name, reason: "No email" }); continue; }
+          if (!customer?.email) { skipped.push({ customer: name, reason: "No email on record" }); continue; }
           const total = invoices.reduce((s, i) => s + Number(i.amount || 0), 0);
-          try {
-            await transporter.sendMail({
-              from: `"Smart Billing" <${REMINDER_EMAIL}>`,
-              to: customer.email,
-              subject: `Payment Reminder — ₹${total.toLocaleString("en-IN")} due`,
-              html: buildReminderEmail(name, invoices, appUrl),
-            });
-            sent.push({ customer: name, email: customer.email, amount: total, invoices: invoices.map((i) => i.invoiceNo) });
-          } catch (err) {
-            failed.push({ customer: name, email: customer.email, error: err.message });
+          if (isDemo) {
+            sent.push({ customer: name, email: customer.email, amount: total, invoices: invoices.map((i) => i.invoiceNo), demo: true });
+          } else {
+            try {
+              await transporter.sendMail({
+                from: `"Smart Billing" <${REMINDER_EMAIL}>`,
+                to: customer.email,
+                subject: `Payment Reminder — ₹${total.toLocaleString("en-IN")} due`,
+                html: buildReminderEmail(name, invoices, appUrl),
+              });
+              sent.push({ customer: name, email: customer.email, amount: total, invoices: invoices.map((i) => i.invoiceNo) });
+            } catch (err) {
+              failed.push({ customer: name, email: customer.email, error: err.message });
+            }
           }
         }
         const summary = `${sent.length} sent, ${failed.length} failed, ${skipped.length} skipped`;
-        return res.json({ success: true, action: "send-reminders", sent, failed, skipped, summary });
+        const demo = isDemo ? { note: "DEMO MODE — emails were logged instead of sent. Set REMINDER_EMAIL and REMINDER_EMAIL_PASSWORD to send real emails." } : {};
+        return res.json({ success: true, action: "send-reminders", sent, failed, skipped, summary, ...demo });
       }
 
       case "pending-summary": {

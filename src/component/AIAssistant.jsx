@@ -76,11 +76,18 @@ function AIAssistant({ embedded = false }) {
   function formatActionResult(data) {
     switch (data.action) {
       case "send-reminders": {
-        let msg = `**Reminder Report**\n\n`;
+        let msg = "";
+        if (data.demo) {
+          msg += "⚠️ **DEMO MODE** — Email not configured. Showing what would be sent:\n\n";
+        }
+        msg += `**Reminder Report**\n\n`;
         if (data.sent?.length) {
-          msg += `✅ Sent: ${data.sent.length}\n`;
+          msg += `✅ Would send to ${data.sent.length} customer(s):\n`;
           data.sent.forEach((s) => {
             msg += `  • ${s.customer} (${s.email}) — ₹${Number(s.amount).toLocaleString("en-IN")}\n`;
+            if (data.demo && s.invoices) {
+              s.invoices.forEach((inv) => msg += `      Invoice ${inv}\n`);
+            }
           });
         }
         if (data.failed?.length) {
@@ -92,7 +99,10 @@ function AIAssistant({ embedded = false }) {
           data.skipped.forEach((s) => msg += `  • ${s.customer} — ${s.reason}\n`);
         }
         if (!data.sent?.length && !data.failed?.length && !data.skipped?.length) {
-          msg = "No pending invoices found. All invoices are paid!";
+          msg += "No pending invoices found. All invoices are paid!";
+        }
+        if (data.demo) {
+          msg += `\n\n📧 To send real emails, add REMINDER_EMAIL and REMINDER_EMAIL_PASSWORD to your Render environment variables (Gmail app password).`;
         }
         return msg;
       }
