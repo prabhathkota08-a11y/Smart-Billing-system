@@ -143,3 +143,66 @@
 .ai-suggestion-chip:hover {
   background: #e2e8f0;
 }
+
+.ai-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  min-width: 160px;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.ai-action-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+
+.ai-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ai-action-sub {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.ai-action-bar {
+  display: flex;
+  gap: 8px;
+  padding: 0 0 8px;
+  flex-wrap: wrap;
+}
+
+.ai-action-btn-sm {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ai-action-btn-sm:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.ai-action-btn-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

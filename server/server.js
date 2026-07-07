@@ -482,6 +482,98 @@ app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
   } catch { res.status(500).json({ error: "Failed to load stats." }); }
 });
 
+// ===================================================
+// AI Action endpoint — lets the AI Assistant perform actions
+// ===================================================
+app.post("/api/ai/action", authenticateToken, async (req, res) => {
+  const { action, params } = req.body;
+  const uid = req.user.id;
+
+  try {
+    switch (action) {
+
+      case "send-reminders": {
+        const transporter = createMailTransporter();
+        if (!transporter) {
+          return res.json({ success: false, message: "Email not configured. Set REMINDER_EMAIL and REMINDER_EMAIL_PASSWORD in Render env vars." });
+        }
+        const pendingInvoices = await Invoice.find({ userId: uid, status: "Pending" });
+        if (pendingInvoices.length === 0) {
+          return res.json({ success: true, message: "No pending invoices found. All invoices are paid!" });
+        }
+        const byCustomer = {};
+        pendingInvoices.forEach((inv) => {
+          const key = inv.customer || "Unknown";
+          if (!byCustomer[key]) byCustomer[key] = [];
+          byCustomer[key].push(inv);
+        });
+        const sent = [], failed = [], skipped = [];
+        const appUrl = process.env.APP_URL || "https://smart-billing-system-0m7z.onrender.com";
+        for (const [name, invoices] of Object.entries(byCustomer)) {
+          const customer = await Customer.findOne({ userId: uid, name: { $regex: `^${name}$`, $options: "i" } });
+          if (!customer?.email) { skipped.push({ customer: name, reason: "No email" }); continue; }
+          const total = invoices.reduce((s, i) => s + Number(i.amount || 0), 0);
+          try {
+            await transporter.sendMail({
+              from: `"Smart Billing" <${REMINDER_EMAIL}>`,
+              to: customer.email,
+              subject: `Payment Reminder — ₹${total.toLocaleString("en-IN")} due`,
+              html: buildReminderEmail(name, invoices, appUrl),
+            });
+            sent.push({ customer: name, email: customer.email, amount: total, invoices: invoices.map((i) => i.invoiceNo) });
+          } catch (err) {
+            failed.push({ customer: name, email: customer.email, error: err.message });
+          }
+        }
+        const summary = `${sent.length} sent, ${failed.length} failed, ${skipped.length} skipped`;
+        return res.json({ success: true, action: "send-reminders", sent, failed, skipped, summary });
+      }
+
+      case "pending-summary": {
+        const pendingInvoices = await Invoice.find({ userId: uid, status: "Pending" }).sort({ createdAt: -1 });
+        const totalAmount = pendingInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
+        const byCustomer = {};
+        pendingInvoices.forEach((inv) => {
+          const key = inv.customer || "Unknown";
+          byCustomer[key] = (byCustomer[key] || 0) + 1;
+        });
+        return res.json({
+          success: true,
+          action: "pending-summary",
+          totalInvoices: pendingInvoices.length,
+          totalAmount,
+          customerBreakdown: Object.entries(byCustomer).map(([name, count]) => ({ name, count })),
+          invoices: pendingInvoices.map((i) => ({ invoiceNo: i.invoiceNo, customer: i.customer, amount: i.amount, createdAt: i.createdAt })),
+        });
+      }
+
+      case "customer-count": {
+        const count = await Customer.countDocuments({ userId: uid });
+        const invoices = await Invoice.countDocuments({ userId: uid });
+        const payments = await Payment.countDocuments({ userId: uid });
+        const pendingTotal = await Invoice.aggregate([
+          { $match: { userId: uid, status: "Pending" } },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ]);
+        return res.json({
+          success: true,
+          action: "customer-count",
+          customers: count,
+          invoices,
+          payments,
+          pendingAmount: pendingTotal[0]?.total || 0,
+        });
+      }
+
+      default:
+        return res.status(400).json({ success: false, error: `Unknown action: ${action}` });
+    }
+  } catch (err) {
+    console.error("AI action error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get("/api/health", (req, res) => {
   const mongoState = mongoose.connection.readyState;
   const stateMap = { 0: "disconnected", 1: "connected", 2: "connecting", 3: "disconnecting" };
