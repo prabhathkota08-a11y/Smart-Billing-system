@@ -80,6 +80,12 @@ function Login() {
             {isRegister ? "Sign In" : "Register"}
           </button>
         </div>
+
+        {!isRegister && (
+          <div className="demo-creds">
+            <strong>Demo:</strong> admin@smartbilling.com / admin123
+          </div>
+        )}
       </div>
     </div>
   );
