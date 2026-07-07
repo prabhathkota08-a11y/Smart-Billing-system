@@ -77,16 +77,19 @@ function AIAssistant({ embedded = false }) {
     switch (data.action) {
       case "send-reminders": {
         let msg = "";
-        if (data.demo) {
-          msg += "⚠️ **DEMO MODE** — Email not configured. Showing what would be sent:\n\n";
+        if (data.meta?.type === "ethereal") {
+          msg += "📧 **Emails sent via Ethereal test service**\nEmails were delivered to Ethereal's test inbox. Click the links below to view each one.\n\n";
         }
         msg += `**Reminder Report**\n\n`;
         if (data.sent?.length) {
-          msg += `✅ Would send to ${data.sent.length} customer(s):\n`;
+          msg += `✅ Sent to ${data.sent.length} customer(s):\n`;
           data.sent.forEach((s) => {
             msg += `  • ${s.customer} (${s.email}) — ₹${Number(s.amount).toLocaleString("en-IN")}\n`;
-            if (data.demo && s.invoices) {
+            if (s.invoices) {
               s.invoices.forEach((inv) => msg += `      Invoice ${inv}\n`);
+            }
+            if (s.previewUrl) {
+              msg += `      🔗 View email: ${s.previewUrl}\n`;
             }
           });
         }
@@ -101,8 +104,8 @@ function AIAssistant({ embedded = false }) {
         if (!data.sent?.length && !data.failed?.length && !data.skipped?.length) {
           msg += "No pending invoices found. All invoices are paid!";
         }
-        if (data.demo) {
-          msg += `\n\n📧 To send real emails, add REMINDER_EMAIL and REMINDER_EMAIL_PASSWORD to your Render environment variables (Gmail app password).`;
+        if (data.meta?.type === "ethereal" && data.meta?.loginUrl) {
+          msg += `\n\n📬 **Ethereal inbox:** ${data.meta.loginUrl}\n   Email: ${data.meta.loginUser}\n   Password: ${data.meta.loginPass}`;
         }
         return msg;
       }
