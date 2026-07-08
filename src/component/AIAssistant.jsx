@@ -130,6 +130,9 @@ function AIAssistant({ embedded = false }) {
         data.links.forEach((l) => {
           msg += `**${l.customer}** — ₹${Number(l.amount).toLocaleString("en-IN")}\n`;
           msg += `Invoices: ${l.invoices}\n`;
+          if (l.message) {
+            msg += `\`\`\`\n${l.message}\n\`\`\`\n`;
+          }
           if (l.url) {
             msg += `👉 [Open WhatsApp](${l.url})\n`;
           } else {
@@ -137,7 +140,6 @@ function AIAssistant({ embedded = false }) {
           }
           msg += `\n`;
         });
-        msg += `_Click "Open WhatsApp" to send the reminder from your phone._`;
         return msg;
       }
       default:

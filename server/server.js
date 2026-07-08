@@ -612,7 +612,8 @@ app.post("/api/ai/action", authenticateToken, async (req, res) => {
           );
           const cleanPhone = phone.replace(/[^0-9]/g, "");
           const waNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-          links.push({ customer: name, phone, amount: total, invoices: invoiceList, url: phone ? `https://wa.me/${waNumber}?text=${msg}` : null });
+          const messageText = `Dear ${name},\n\nYou have ${invoices.length} pending invoice(s) (${invoiceList}) totalling ₹${total.toLocaleString("en-IN")}. Please clear your dues at the earliest.\n\nThank you,\nSmart Billing`;
+          links.push({ customer: name, phone, amount: total, invoices: invoiceList, message: messageText, url: phone ? `https://wa.me/${waNumber}?text=${encodeURIComponent(messageText)}` : null });
         }
         return res.json({ success: true, action: "send-whatsapp", links, total: links.length });
       }
