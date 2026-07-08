@@ -276,7 +276,7 @@ function AIAssistant({ embedded = false }) {
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`ai-message ${msg.role}`}>
-                <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+                <div style={{ whiteSpace: "pre-wrap" }} dangerouslySetInnerHTML={{ __html: msg.content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:underline">$1</a>').replace(/\n/g, "<br>") }} />
                 {msg.role === "assistant" && ttsSupported && (
                   <button
                     onClick={() => speakMessage(msg.content)}
