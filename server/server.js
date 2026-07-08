@@ -186,7 +186,7 @@ function authenticateToken(req, res, next) {
 
 function createMailTransporter() {
   if (REMINDER_EMAIL && REMINDER_EMAIL_PW) {
-    return { transporter: nodemailer.createTransport({ service: "gmail", auth: { user: REMINDER_EMAIL, pass: REMINDER_EMAIL_PW }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 }), type: "gmail" };
+    return { transporter: nodemailer.createTransport({ host: "smtp.gmail.com", port: 587, secure: false, auth: { user: REMINDER_EMAIL, pass: REMINDER_EMAIL_PW }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 }), type: "gmail" };
   }
   return null;
 }
@@ -531,7 +531,8 @@ app.post("/api/ai/action", authenticateToken, async (req, res) => {
               });
               sent.push({ customer: name, email: customer.email, amount: total, invoices: invoiceList, delivered: true });
             } catch (err) {
-              failed.push({ customer: name, email: customer.email, error: err.message });
+              console.error("SMTP send error:", err.message, err.code);
+              failed.push({ customer: name, email: customer.email, error: `${err.message}${err.code ? ` (${err.code})` : ""}. Check that: 1) 2FA is enabled on your Gmail, 2) You used a 16-char App Password (not your regular password), 3) The App Password has no spaces.` });
             }
           } else {
             const emailHtml = buildReminderEmail(name, invoices, appUrl);
