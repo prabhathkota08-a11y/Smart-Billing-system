@@ -590,6 +590,33 @@ app.post("/api/ai/action", authenticateToken, async (req, res) => {
         });
       }
 
+      case "send-whatsapp": {
+        const pendingInvoices = await Invoice.find({ userId: uid, status: "Pending" });
+        if (pendingInvoices.length === 0) {
+          return res.json({ success: true, message: "No pending invoices found. All invoices are paid!" });
+        }
+        const byCustomer = {};
+        pendingInvoices.forEach((inv) => {
+          const key = inv.customer || "Unknown";
+          if (!byCustomer[key]) byCustomer[key] = [];
+          byCustomer[key].push(inv);
+        });
+        const links = [];
+        for (const [name, invoices] of Object.entries(byCustomer)) {
+          const customer = await Customer.findOne({ userId: uid, name: { $regex: `^${name}$`, $options: "i" } });
+          const phone = customer?.phone || "";
+          const total = invoices.reduce((s, i) => s + Number(i.amount || 0), 0);
+          const invoiceList = invoices.map((i) => i.invoiceNo).join(", ");
+          const msg = encodeURIComponent(
+            `Dear ${name},\n\nYou have ${invoices.length} pending invoice(s) (${invoiceList}) totalling ₹${total.toLocaleString("en-IN")}. Please clear your dues at the earliest.\n\nThank you,\nSmart Billing`
+          );
+          const cleanPhone = phone.replace(/[^0-9]/g, "");
+          const waNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+          links.push({ customer: name, phone, amount: total, invoices: invoiceList, url: phone ? `https://wa.me/${waNumber}?text=${msg}` : null });
+        }
+        return res.json({ success: true, action: "send-whatsapp", links, total: links.length });
+      }
+
       default:
         return res.status(400).json({ success: false, error: `Unknown action: ${action}` });
     }

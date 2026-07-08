@@ -124,6 +124,22 @@ function AIAssistant({ embedded = false }) {
       case "customer-count": {
         return `**Account Stats**\n\n👥 Customers: ${data.customers}\n📄 Invoices: ${data.invoices}\n💰 Payments: ${data.payments}\n⏳ Pending Amount: ₹${Number(data.pendingAmount).toLocaleString("en-IN")}`;
       }
+      case "send-whatsapp": {
+        if (!data.links?.length) return "No pending invoices to send.";
+        let msg = `📱 **WhatsApp Reminders**\n\n`;
+        data.links.forEach((l) => {
+          msg += `**${l.customer}** — ₹${Number(l.amount).toLocaleString("en-IN")}\n`;
+          msg += `Invoices: ${l.invoices}\n`;
+          if (l.url) {
+            msg += `👉 [Open WhatsApp](${l.url})\n`;
+          } else {
+            msg += `❌ No phone number on record\n`;
+          }
+          msg += `\n`;
+        });
+        msg += `_Click "Open WhatsApp" to send the reminder from your phone._`;
+        return msg;
+      }
       default:
         return JSON.stringify(data, null, 2);
     }
@@ -181,6 +197,11 @@ function AIAssistant({ embedded = false }) {
       label: "📧 Send Reminders",
       sub: "Email all pending invoices",
       action: "send-reminders",
+    },
+    {
+      label: "📱 WhatsApp Reminder",
+      sub: "Send via WhatsApp",
+      action: "send-whatsapp",
     },
     {
       label: "📋 Pending Summary",
