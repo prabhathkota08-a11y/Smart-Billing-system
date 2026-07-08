@@ -186,7 +186,7 @@ function authenticateToken(req, res, next) {
 
 function createMailTransporter() {
   if (REMINDER_EMAIL && REMINDER_EMAIL_PW) {
-    return { transporter: nodemailer.createTransport({ host: "smtp.gmail.com", port: 587, secure: false, auth: { user: REMINDER_EMAIL, pass: REMINDER_EMAIL_PW }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 }), type: "gmail" };
+    return { transporter: nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: REMINDER_EMAIL, pass: REMINDER_EMAIL_PW }, connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 20000 }), type: "gmail" };
   }
   return null;
 }
