@@ -185,7 +185,7 @@ function authenticateToken(req, res, next) {
 
 function createMailTransporter() {
   if (REMINDER_EMAIL && REMINDER_EMAIL_PW) {
-    return { transporter: nodemailer.createTransport({ service: "gmail", auth: { user: REMINDER_EMAIL, pass: REMINDER_EMAIL_PW } }), type: "gmail" };
+    return { transporter: nodemailer.createTransport({ service: "gmail", auth: { user: REMINDER_EMAIL, pass: REMINDER_EMAIL_PW }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 }), type: "gmail" };
   }
   return null;
 }
