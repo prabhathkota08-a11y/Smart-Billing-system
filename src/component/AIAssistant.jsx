@@ -4,9 +4,6 @@ import { useTextToSpeech } from "../hooks/useTextToSpeech";
 import { useVoiceRecognition } from "../hooks/useVoiceRecognition";
 import { getToken } from "../services/api";
 
-const API_KEY = "AIzaSyB4Gv-JJ5JKbVKE2r39X6zQqP-j4fMEXcM";
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
-
 const SYSTEM_PROMPT = `You are a helpful AI assistant for a Smart Billing application.
 You can help users with:
 - Billing and invoicing questions
@@ -154,15 +151,14 @@ function AIAssistant({ embedded = false }) {
         { role: "user", parts: [{ text: messageText }] },
       ];
 
-      const response = await fetch(API_URL, {
+      const response = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: contextMessages }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ messages: contextMessages }),
       });
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `API error: ${response.status}`);
       const assistantText =
         data?.candidates?.[0]?.content?.parts?.[0]?.text ||
         "I'm sorry, I couldn't process that request.";

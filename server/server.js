@@ -15,6 +15,7 @@ const MONGODB_URI   = process.env.MONGODB_URI   || "mongodb://localhost:27017/sm
 const DIST_DIR      = path.join(__dirname, "..", "dist");
 const REMINDER_EMAIL    = process.env.REMINDER_EMAIL          || "";
 const REMINDER_EMAIL_PW = process.env.REMINDER_EMAIL_PASSWORD || "";
+const GEMINI_API_KEY    = process.env.GEMINI_API_KEY          || "";
 
 let dbConnected = false;
 let usingEmbeddedDB = false;
@@ -597,6 +598,27 @@ app.post("/api/ai/action", authenticateToken, async (req, res) => {
   }
 });
 
+// ===================================================
+// AI Chat endpoint — proxies Gemini API securely
+// ===================================================
+app.post("/api/ai/chat", authenticateToken, async (req, res) => {
+  if (!GEMINI_API_KEY) {
+    return res.status(503).json({ error: "Gemini API key not configured. Set GEMINI_API_KEY in Render env vars." });
+  }
+  try {
+    const { messages } = req.body;
+    const googleRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: messages }) }
+    );
+    const data = await googleRes.json();
+    if (!googleRes.ok) return res.status(502).json({ error: data.error?.message || "Gemini API error" });
+    res.json(data);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 app.get("/api/health", (req, res) => {
   const mongoState = mongoose.connection.readyState;
   const stateMap = { 0: "disconnected", 1: "connected", 2: "connecting", 3: "disconnecting" };
@@ -630,6 +652,8 @@ app.get("/api/setup", (req, res) => {
     envVars: {
       MONGODB_URI: { set: !!process.env.MONGODB_URI, using: usingEmbeddedDB ? "embedded fallback" : "external" },
       JWT_SECRET: { set: !!process.env.JWT_SECRET || JWT_SECRET !== "dev_jwt_secret_change_in_prod" },
+      REMINDER_EMAIL: { set: !!REMINDER_EMAIL },
+      GEMINI_API_KEY: { set: !!GEMINI_API_KEY },
     },
     message: dbStatus === "connected"
       ? "Everything is ready! Login with admin@smartbilling.com / admin123"
